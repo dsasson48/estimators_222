@@ -8,33 +8,153 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(gganimate)
+library(gridExtra)
+set.seed(35)
 ```
 
+#Bayesian estimator and confidence interval code (DAN)
+
 ```{r}
+# n is sample size from exponential distribution
+# replicates is number of samples from exponential distribution
+# rate is exponential rate parameter
 
-
-dat <- data.frame(observation = seq(1,1000,1), parameter = rep(5,1000))
-
-dat %>%
-  mutate(estimate = replicate(1000, 1/mean(qexp(runif(1000), rate = 5, lower.tail = TRUE, log.p = FALSE))),
-         lower = estimate - 1.96/sqrt(estimate^2),
-         upper = estimate + 1.96/sqrt(estimate^2),
-         hit = ifelse(parameter > lower & parameter < upper, 1, 0)) %>%
-  as.data.frame() %>%
-  ggplot() +
-  geom_point(aes(y = estimate, x = observation)) +
-  geom_hline(yintercept = 5, col = "red") +
-  geom_errorbar(aes(x = observation, ymin = lower, ymax = upper, col = as.factor(hit)))
-
+simulate_exponential_gamma <- function(n, rate, replicates){
   
+  alpha <- c()
+  beta <- c()
+  for(i in 1:replicates){ 
+    x <- rexp(n, rate)
+    beta_i <- sum(x)
+    alpha_i <- n + 1
+    alpha <- c(alpha, alpha_i)
+    beta <- c(beta, beta_i)
+  }
+  
+  
+  hits <- c()
+  for(i in 1:replicates){
+    GAMMAS <- qgamma(c(0.025,0.975), alpha[i], beta[i])
+    if(rate > GAMMAS[2] || rate < GAMMAS[1]){
+      hits = c(hits,0) 
+    } else {
+      hits = c(hits,1)
+    }
+  }
+  
+  bias <- alpha/beta - rate
+  variance <- alpha/beta^2
+  MSE <- variance + bias^2
+  
+  return(list(coverage = mean(hits), bias = bias, variance = variance, MSE = MSE))  
+  
+}  
+
+
+# testing
+simulations <- simulate_exponential_gamma(n = 10000, rate = 1, replicates = 1000)
+mean(simulations$coverage)
+mean(simulations$MSE)
+mean(simulations$bias)
+
+# coverages and measurements over sample size
+n <- 10:500
+data <- lapply(n, simulate_exponential_gamma, rate = 5, replicates = 1000)
+coverages <- c()
+mean_bias <- c()
+mean_variance <- c()
+mean_MSE <- c()
+for(i in 1:length(data)){
+  coverages <- c(coverages, data[[i]]$coverage)
+  mean_bias <- c(mean_bias, mean(data[[i]]$bias))
+  mean_variance <- c(mean_variance, mean(data[[i]]$variance))
+  mean_MSE <- c(mean_MSE, median(data[[i]]$MSE))
+}
+
+
+manyN <- data.frame(n, coverages, mean_bias, mean_variance, mean_MSE)
+#coverages over sample size
+manyN %>% ggplot(aes(x = n, y = coverages)) + geom_point(alpha = 0.5) + geom_smooth(method = 'loess')
+#bias, mse, variance over sample size
+manyN %>% ggplot() + geom_smooth(aes(n, mean_bias), col = 'red') + 
+  geom_smooth(aes(n,mean_variance), col = 'blue') + 
+  geom_smooth(aes(n,mean_MSE), col = 'green')
+
+
+# changing rates fixed sample size
+rate <- seq(0.01, 20, length.out = 100)
+data2 <- lapply(rate, simulate_exponential_gamma, n = 50, replicates = 1000)
+
+coverages <- c()
+mean_bias <- c()
+mean_variance <- c()
+mean_MSE <- c()
+for(i in 1:length(data2)){
+  coverages <- c(coverages, data2[[i]]$coverage)
+  mean_bias <- c(mean_bias, mean(data2[[i]]$bias))
+  mean_variance <- c(mean_variance, mean(data2[[i]]$variance))
+  mean_MSE <- c(mean_MSE, median(data2[[i]]$MSE))
+}
+
+manyR10 <- data.frame(rate, coverages, mean_bias, mean_variance, mean_MSE)
+#coverage over rates
+manyR10 %>% ggplot(aes(x = rate, y = coverages)) + geom_smooth(method = 'loess')
+#bias, mse, variance over rates
+manyR10 %>% ggplot() + geom_smooth(aes(rate, mean_bias), col = 'red') + 
+  geom_smooth(aes(rate, mean_variance), col = 'blue') + 
+  geom_smooth(aes(rate, mean_MSE), col = 'green')
+
+
+data3 <- lapply(rate, simulate_exponential_gamma, n = 50, replicates = 1000)
+
+coverages <- c()
+mean_bias <- c()
+mean_variance <- c()
+mean_MSE <- c()
+for(i in 1:length(data2)){
+  coverages <- c(coverages, data3[[i]]$coverage)
+  mean_bias <- c(mean_bias, mean(data3[[i]]$bias))
+  mean_variance <- c(mean_variance, mean(data3[[i]]$variance))
+  mean_MSE <- c(mean_MSE, median(data3[[i]]$MSE))
+}
+
+manyR50 <- data.frame(rate, coverages, mean_bias, mean_variance, mean_MSE)
+manyR50 %>% ggplot(aes(x = rate, y = coverages)) + geom_point(alpha = 0.5) + geom_smooth(method = 'loess')
+manyR50 %>% ggplot() + geom_smooth(aes(rate, mean_bias), col = 'red') + 
+  geom_smooth(aes(rate, mean_variance), col = 'blue') + 
+  geom_smooth(aes(rate, mean_MSE), col = 'green')
+
+
+data4 <- lapply(rate, simulate_exponential_gamma, n = 50, replicates = 1000)
+
+coverages <- c()
+mean_bias <- c()
+mean_variance <- c()
+mean_MSE <- c()
+for(i in 1:length(data2)){
+  coverages <- c(coverages, data4[[i]]$coverage)
+  mean_bias <- c(mean_bias, mean(data4[[i]]$bias))
+  mean_variance <- c(mean_variance, mean(data4[[i]]$variance))
+  mean_MSE <- c(mean_MSE, median(data4[[i]]$MSE))
+}
+
+manyR25 <- data.frame(rate, coverages, mean_bias, mean_variance, mean_MSE)
+manyR25 %>% ggplot(aes(x = rate, y = coverages)) + geom_point(alpha = 0.5) + geom_smooth(method = 'loess')
+manyR25 %>% ggplot() + geom_smooth(aes(rate, mean_bias), col = 'red') + 
+  geom_smooth(aes(rate, mean_variance), col = 'blue') + 
+  geom_smooth(aes(rate, mean_MSE), col = 'green')
+
+
 ```
 
-# 1/mean (MLE) as estimator, fixed n-size coverage probabilities for parameters 0.1 to 10
+
+# delta method, fixed n-size coverage probabilities for parameters 0.1 to 10
 
 ```{r}
 
-wald_ci_mle <- function(observations, parameter, n_size){
+#Delta function for coverage probabilities
+
+delta_ci <- function(observations, parameter, n_size){
 
 
 dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
@@ -42,124 +162,179 @@ dat <- data.frame(observation = seq(1,observations,1), true_parameter = paramete
 
 for (i in 1:length(dat$observation)){
   dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
-  dat$lower[i] <- dat$estimate[i] - 1.96/sqrt(dat$estimate[i]^2)
-  dat$upper[i] <- dat$estimate[i] + 1.96/sqrt(dat$estimate[i]^2)
+  
+  dat$lower[i] <- dat$estimate[i] - (1.96*dat$estimate[i])/sqrt(dat$n_size[i])
+  
+  dat$upper[i] <- dat$estimate[i] + (1.96*dat$estimate[i])/sqrt(dat$n_size[i])
+  
   dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
 } 
 return(sum(dat$hit)/observations)
 }
 
 
-dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
 
-for (i in 1:100) {
+# Delta Simulation
 
-  dat_4$cov_prob[i] <- wald_ci_mle(1000, dat_4$parameter[i], 100)
+dat_delta_parameter <- data.frame(parameter = seq(0.01, 20, length.out = 100))
+
+for (i in 1:length(dat_delta_parameter$parameter)) {
+
+  dat_delta_parameter$cov_prob[i] <- delta_ci(1000, dat_delta_parameter$parameter[i],50)
 }
 
-dat_4 %>%
-  mutate(parameter_1 = round(parameter)) %>%
+
+#Delta plot vs. paramter (n = 100)
+
+dat_delta_parameter %>%
   ggplot(aes(x = parameter, y = cov_prob)) +
   geom_point()
-
-
 
 ```
 
 
 
-# 1/median as estimator, fixed n-size coverage probabilities for parameters 0.1 to 10
+
+# exact confidence interval *
+
+## 1/mean as estimator, exact confidence intervals, fixed n-size coverage probabilities for parameters 0.1 to 10
  
 ```{r}
 
-wald_ci_median <- function(observations, parameter, n_size){
+#exact ci function
+
+exact_ci <- function(observations, parameter, n_size){
 
 
 dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size, observations))
 
 
 for (i in 1:length(dat$observation)){
-  dat$estimate[i] <- 1/median(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
-  dat$lower[i] <- dat$estimate[i] - 1.96/sqrt(dat$estimate[i]^2)
-  dat$upper[i] <- dat$estimate[i] + 1.96/sqrt(dat$estimate[i]^2)
+  
+  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
+  
+  dat$lower[i] <- dat$estimate[i] - qchisq(0.025, 2*dat$n_size[i])/(2*dat$n_size[i]*(1/dat$estimate[i]))
+  
+  dat$upper[i] <- dat$estimate[i] + qchisq(0.025, 2*dat$n_size[i])/(2*dat$n_size[i]*(1/dat$estimate[i]))
+  
   dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
 } 
 return(sum(dat$hit)/observations)
 }
 
 
-dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
+#exact ci simulation for 
+ 
+dat_exact_paramter <- data.frame(parameter = seq(0.1, 20, length.out = 100))
 
-for (i in 1:100) {
+for (i in 1:length(dat_exact_paramter$parameter)) {
 
-  dat_4$cov_prob[i] <- wald_ci_median(1000, dat_4$parameter[i], 100)
+  dat_exact_paramter$cov_prob[i] <- exact_ci(1000, dat_exact_paramter$parameter[i], 50)
 }
 
-dat_4 %>%
+dat_exact_paramter %>%
   ggplot() +
   geom_point(aes(x = parameter, y = cov_prob))
 
 ```
 
 
-# 1/mean as estimator, variable n-size coverage probabilities for parameters = 5
+# delta ci, variable n-size coverage probabilities for parameters = 5
 
 ```{r}
 
-dat_4 <- data.frame(n_size = seq(20,1000, 1))
 
-for (i in 1:length(dat_4$n_size)) {
+dat_delta_n <- data.frame(n_size = seq(10, 500, 1))
 
-  dat_4$cov_prob[i] <- wald_ci_mle(1000, 5, dat_4$n_size[i])
+for (i in 1:length(dat_delta_n$n_size)) {
+
+  dat_delta_n$cov_prob[i] <- delta_ci(1000, 5, dat_delta_n$n_size[i])
 }
 
-dat_4 %>%
+dat_delta_n %>%
   ggplot() +
-  geom_point(aes(x = n_size, y = cov_prob))
+  geom_point(aes(x = n_size, y = cov_prob)) +
+  geom_smooth(aes(x = n_size, y = cov_prob))
 
 ```
 
-# 1/median as estimator, variable n-size coverage probabilities for parameter = 5
+# exact ci as estimator, variable n-size coverage probabilities for parameter = 5
 
 ```{r}
 
-dat_4 <- data.frame(n_sizze = seq(20,500, length.out = 100))
+dat_exact_n <- data.frame(n_size = seq(10,500, 1))
 
-for (i in 1:100) {
+for (i in 1:length(dat_exact_n$n_size)) {
 
-  dat_4$cov_prob[i] <- wald_ci_median(1000, 5, dat_4$n_sizze[i])
+  dat_exact_n$cov_prob[i] <- exact_ci(1000, 5, dat_exact_n$n_size[i])
 }
 
-dat_4 %>%
+dat_exact_n %>%
   ggplot() +
-  geom_point(aes(x = n_sizze, y = cov_prob))
+  geom_path(aes(x = n_size, y = cov_prob))
 
 ```
+
+
+
+#CI methods plotted together
+
+```{r}
+
+bayesian <- "red"
+delta <- "blue"
+
+ggplot() +
+  geom_smooth(data = manyR50, aes(x = rate, y = coverages), col = bayesian) +
+  geom_smooth(data = dat_delta_parameter, aes(x = parameter, y = cov_prob), col = delta)
+
+
+
+```
+
+
+
+
+#Parameters
 
 # 1/mean (MLE) as estimator, constant n-size MSE for variable parameter
 
 ```{r}
 
-mse_mle <- function(observations, parameter, n_size){
+estimators <- function(observations, parameter, n_size){
 
-dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
+dat <- data.frame(observation = seq(1,observations,1), true_parameter = rep(parameter, observations), n_size = rep(n_size,observations))
 
 for (i in 1:length(dat$observation)){
-  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
-  dat$sq_error[i] <- (dat$true_parameter[i] - dat$estimate[i])^2
-  mse <- mean(dat$sq_error)
   
-} 
-return(mse)
+  sample_exp <- rexp(n = dat$n_size[i], rate = dat$true_parameter[i])
+  
+  dat$mle[i] <- 1/mean(sample_exp)
+  dat$med[i] <- 1/median(sample_exp)
+  
+  dat$mle_bias[i] <- dat$mle[i] - dat$true_parameter[i]
+  dat$med_bias[i] <- dat$med[i] - dat$true_parameter[i]
+  
+  dat$mle_sq_error[i] <- (dat$true_parameter[i] - dat$mle[i])^2
+  dat$med_sq_error[i] <- (dat$true_parameter[i] - dat$med[i])^2
+  } 
+
+
+
+mle_mse <- mean(dat$mle_sq_error)
+med_mse <- mean(dat$med_sq_error)
+
+mle_var <- var(dat$mle)
+med_var <- var(dat$med)
+
+mle_avg_bias <- mean(dat$mle_bias)
+med_avg_bias <- mean(dat$med_bias)
+
+return(data.frame(mle_mse = mle_mse, med_mse = med_mse, mle_var = mle_var, med_var = med_var, mle_avg_bias = mle_avg_bias, med_avg_bias = med_avg_bias))
+
 }
 
-
-dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
-
-for (i in 1:100) {
-
-  dat_4$mse[i] <- mse_mle(1000, dat_4$parameter[i], 100)
-}
+estimators(100, 5, 20)
 
 dat_4 %>%
   ggplot() +
@@ -167,102 +342,81 @@ dat_4 %>%
 
 ```
 
-# 1/median as estimator, constant n-size MSE for variable parameter
+# Estimates mse, bias, variance over parameters
 
 ```{r}
 
-mse_median <- function(observations, parameter, n_size){
+dat_parameter <- data.frame(parameter = seq(0.01, 20, length.out = 100))
 
-dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
+dat_sim_parameter <- data.frame(mle_mse = NULL, med_mse = NULL, mle_var = NULL, med_var = NULL, mle_avg_bias = NULL, med_avg_bias = NULL)
 
-for (i in 1:length(dat$observation)){
-  dat$estimate[i] <- 1/median(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
-  dat$sq_error[i] <- (dat$true_parameter[i] - dat$estimate[i])^2
-  mse <- mean(dat$sq_error)
-  
-} 
-return(mse)
+for (i in 1:length(dat_parameter$parameter)) {
+
+ dat_sim_parameter <- rbind(dat_sim_parameter, estimators(1000, dat_parameter$parameter[i], 50))
 }
 
+dat_parameter <- cbind(dat_parameter, dat_sim_parameter)
 
-dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
-
-for (i in 1:100) {
-
-  dat_4$mse[i] <- mse_median(1000, dat_4$parameter[i], 100)
-}
-
-dat_4 %>%
+mse_parameter <- dat_parameter %>%
   ggplot() +
-  geom_point(aes(x = parameter, y = mse))
+  geom_path(aes(x = parameter, y = mle_mse), col = "red") +
+  geom_path(aes(x = parameter, y = med_mse), col = "green") +
+  geom_path(data = manyR50, aes(x = rate, y = mean_bias), col = "yellow") +
+  ylab("MSE")
+
+bias_parameter <- dat_parameter %>%
+  ggplot() +
+  geom_path(aes(x = parameter, y = mle_avg_bias), col = "red") +
+  geom_path(aes(x = parameter, y = med_avg_bias), col = "green") +
+  geom_path(data = manyR50, aes(x = rate, y = mean_MSE), col = "yellow") +
+  ylab("Bias")
+
+var_parameter <- dat_parameter %>%
+  ggplot() +
+  geom_path(aes(x = parameter, y = mle_var), col = "red") +
+  geom_path(aes(x = parameter, y = med_var), col = "green") +
+  geom_path(data = manyR50, aes(x = rate, y = mean_variance), col = "yellow") +
+  ylab("Variance")
+
+grid.arrange(mse_parameter, bias_parameter, var_parameter, nrow = 3)
 
 ```
 
 
-#Pivotal Method: Exact Confidence Interval for Exponential, coverage probability with varying parameter
-[source](http://www.stat.umn.edu/geyer/old03/5102/notes/ci.pdf)
-
 ```{r}
+dat_n <- data.frame(n_size = seq(10, 500, 1))
 
-ci_pivot <- function(observations, parameter, n_size){
+dat_sim_n <- data.frame(mle_mse = NULL, med_mse = NULL, mle_var = NULL, med_var = NULL, mle_avg_bias = NULL, med_avg_bias = NULL)
 
+for (i in 1:length(dat_n$n_size)) {
 
-dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
-
-
-for (i in 1:length(dat$observation)){
-  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
-  dat$lower[i] <- dat$estimate[i] - qgamma(0.05 / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
-  dat$upper[i] <- dat$estimate[i] + qgamma((1 - 0.05) / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
-  dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
-} 
-return(sum(dat$hit)/observations)
+ dat_sim_n <- rbind(dat_sim_n, estimators(1000, 5, dat_n$n_size[i]))
 }
 
+dat_n <- cbind(dat_n, dat_sim_n)
 
-dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
-
-for (i in 1:100) {
-
-  dat_4$cov_prob[i] <- ci_pivot(1000, dat_4$parameter[i], 100)
-}
-
-dat_4 %>%
+mse_n <- dat_n %>%
   ggplot() +
-  geom_point(aes(x = parameter, y = cov_prob))
+  geom_path(aes(x = n_size, y = mle_mse), col = "red") +
+  geom_path(aes(x = n_size, y = med_mse), col = "green") +
+  geom_path(data = manyN, aes(x = n, y = mean_MSE), col = "yellow") +
+  ylab("MSE")
 
-```
-
-#Pivotal Method: Exact Confidence Interval for Exponential, coverage probability with varying n-size
-
-```{r}
-
-ci_pivot <- function(observations, parameter, n_size){
-
-
-dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
-
-
-for (i in 1:length(dat$observation)){
-  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
-  dat$lower[i] <- dat$estimate[i] - qgamma(0.05 / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
-  dat$upper[i] <- dat$estimate[i] + qgamma((1 - 0.05) / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
-  dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
-} 
-return(sum(dat$hit)/observations)
-}
-
-
-dat_4 <- data.frame(n_size = seq(20, 1000, 1))
-
-for (i in 1:length(dat_4$n_size)) {
-
-  dat_4$cov_prob[i] <- ci_pivot(1000, 5, n_size = dat_4$n_size[i])
-}
-
-dat_4 %>%
+bias_n <- dat_n %>%
   ggplot() +
-  geom_point(aes(x = n_size, y = cov_prob))
+  geom_path(aes(x = n_size, y = mle_avg_bias), col = "red") +
+  geom_path(aes(x = n_size, y = med_avg_bias), col = "green") +
+  geom_path(data = manyN, aes(x = n, y = mean_bias), col = "yellow") +
+  ylab("Bias")
+
+var_n <- dat_n %>%
+  ggplot() +
+  geom_path(aes(x = n_size, y = mle_var), col = "red") +
+  geom_path(aes(x = n_size, y = med_var), col = "green") +
+  geom_path(data = manyN, aes(x = n, y = mean_variance), col = "yellow") +
+  ylab("Variance")
+
+grid.arrange(mse_n, bias_n, var_n, nrow = 3)
 
 ```
 
