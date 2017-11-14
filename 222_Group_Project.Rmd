@@ -1,0 +1,268 @@
+---
+title: "222_Project"
+author: "Colby Wilkinson"
+date: "11/8/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gganimate)
+```
+
+```{r}
+
+
+dat <- data.frame(observation = seq(1,1000,1), parameter = rep(5,1000))
+
+dat %>%
+  mutate(estimate = replicate(1000, 1/mean(qexp(runif(1000), rate = 5, lower.tail = TRUE, log.p = FALSE))),
+         lower = estimate - 1.96/sqrt(estimate^2),
+         upper = estimate + 1.96/sqrt(estimate^2),
+         hit = ifelse(parameter > lower & parameter < upper, 1, 0)) %>%
+  as.data.frame() %>%
+  ggplot() +
+  geom_point(aes(y = estimate, x = observation)) +
+  geom_hline(yintercept = 5, col = "red") +
+  geom_errorbar(aes(x = observation, ymin = lower, ymax = upper, col = as.factor(hit)))
+
+  
+```
+
+# 1/mean (MLE) as estimator, fixed n-size coverage probabilities for parameters 0.1 to 10
+
+```{r}
+
+wald_ci_mle <- function(observations, parameter, n_size){
+
+
+dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
+
+
+for (i in 1:length(dat$observation)){
+  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
+  dat$lower[i] <- dat$estimate[i] - 1.96/sqrt(dat$estimate[i]^2)
+  dat$upper[i] <- dat$estimate[i] + 1.96/sqrt(dat$estimate[i]^2)
+  dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
+} 
+return(sum(dat$hit)/observations)
+}
+
+
+dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
+
+for (i in 1:100) {
+
+  dat_4$cov_prob[i] <- wald_ci_mle(1000, dat_4$parameter[i], 100)
+}
+
+dat_4 %>%
+  mutate(parameter_1 = round(parameter)) %>%
+  ggplot(aes(x = parameter, y = cov_prob)) +
+  geom_point()
+
+
+
+```
+
+
+
+# 1/median as estimator, fixed n-size coverage probabilities for parameters 0.1 to 10
+ 
+```{r}
+
+wald_ci_median <- function(observations, parameter, n_size){
+
+
+dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size, observations))
+
+
+for (i in 1:length(dat$observation)){
+  dat$estimate[i] <- 1/median(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
+  dat$lower[i] <- dat$estimate[i] - 1.96/sqrt(dat$estimate[i]^2)
+  dat$upper[i] <- dat$estimate[i] + 1.96/sqrt(dat$estimate[i]^2)
+  dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
+} 
+return(sum(dat$hit)/observations)
+}
+
+
+dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
+
+for (i in 1:100) {
+
+  dat_4$cov_prob[i] <- wald_ci_median(1000, dat_4$parameter[i], 100)
+}
+
+dat_4 %>%
+  ggplot() +
+  geom_point(aes(x = parameter, y = cov_prob))
+
+```
+
+
+# 1/mean as estimator, variable n-size coverage probabilities for parameters = 5
+
+```{r}
+
+dat_4 <- data.frame(n_size = seq(20,1000, 1))
+
+for (i in 1:length(dat_4$n_size)) {
+
+  dat_4$cov_prob[i] <- wald_ci_mle(1000, 5, dat_4$n_size[i])
+}
+
+dat_4 %>%
+  ggplot() +
+  geom_point(aes(x = n_size, y = cov_prob))
+
+```
+
+# 1/median as estimator, variable n-size coverage probabilities for parameter = 5
+
+```{r}
+
+dat_4 <- data.frame(n_sizze = seq(20,500, length.out = 100))
+
+for (i in 1:100) {
+
+  dat_4$cov_prob[i] <- wald_ci_median(1000, 5, dat_4$n_sizze[i])
+}
+
+dat_4 %>%
+  ggplot() +
+  geom_point(aes(x = n_sizze, y = cov_prob))
+
+```
+
+# 1/mean (MLE) as estimator, constant n-size MSE for variable parameter
+
+```{r}
+
+mse_mle <- function(observations, parameter, n_size){
+
+dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
+
+for (i in 1:length(dat$observation)){
+  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
+  dat$sq_error[i] <- (dat$true_parameter[i] - dat$estimate[i])^2
+  mse <- mean(dat$sq_error)
+  
+} 
+return(mse)
+}
+
+
+dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
+
+for (i in 1:100) {
+
+  dat_4$mse[i] <- mse_mle(1000, dat_4$parameter[i], 100)
+}
+
+dat_4 %>%
+  ggplot() +
+  geom_point(aes(x = parameter, y = mse))
+
+```
+
+# 1/median as estimator, constant n-size MSE for variable parameter
+
+```{r}
+
+mse_median <- function(observations, parameter, n_size){
+
+dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
+
+for (i in 1:length(dat$observation)){
+  dat$estimate[i] <- 1/median(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
+  dat$sq_error[i] <- (dat$true_parameter[i] - dat$estimate[i])^2
+  mse <- mean(dat$sq_error)
+  
+} 
+return(mse)
+}
+
+
+dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
+
+for (i in 1:100) {
+
+  dat_4$mse[i] <- mse_median(1000, dat_4$parameter[i], 100)
+}
+
+dat_4 %>%
+  ggplot() +
+  geom_point(aes(x = parameter, y = mse))
+
+```
+
+
+#Pivotal Method: Exact Confidence Interval for Exponential, coverage probability with varying parameter
+[source](http://www.stat.umn.edu/geyer/old03/5102/notes/ci.pdf)
+
+```{r}
+
+ci_pivot <- function(observations, parameter, n_size){
+
+
+dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
+
+
+for (i in 1:length(dat$observation)){
+  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
+  dat$lower[i] <- dat$estimate[i] - qgamma(0.05 / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
+  dat$upper[i] <- dat$estimate[i] + qgamma((1 - 0.05) / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
+  dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
+} 
+return(sum(dat$hit)/observations)
+}
+
+
+dat_4 <- data.frame(parameter = seq(0.1, 10, length.out = 100))
+
+for (i in 1:100) {
+
+  dat_4$cov_prob[i] <- ci_pivot(1000, dat_4$parameter[i], 100)
+}
+
+dat_4 %>%
+  ggplot() +
+  geom_point(aes(x = parameter, y = cov_prob))
+
+```
+
+#Pivotal Method: Exact Confidence Interval for Exponential, coverage probability with varying n-size
+
+```{r}
+
+ci_pivot <- function(observations, parameter, n_size){
+
+
+dat <- data.frame(observation = seq(1,observations,1), true_parameter = parameter, n_size = rep(n_size,observations))
+
+
+for (i in 1:length(dat$observation)){
+  dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
+  dat$lower[i] <- dat$estimate[i] - qgamma(0.05 / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
+  dat$upper[i] <- dat$estimate[i] + qgamma((1 - 0.05) / 2, shape = dat$n_size[i], rate = dat$n_size[i])/sqrt(dat$estimate[i]^2)
+  dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
+} 
+return(sum(dat$hit)/observations)
+}
+
+
+dat_4 <- data.frame(n_size = seq(20, 1000, 1))
+
+for (i in 1:length(dat_4$n_size)) {
+
+  dat_4$cov_prob[i] <- ci_pivot(1000, 5, n_size = dat_4$n_size[i])
+}
+
+dat_4 %>%
+  ggplot() +
+  geom_point(aes(x = n_size, y = cov_prob))
+
+```
+
