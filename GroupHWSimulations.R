@@ -33,16 +33,16 @@ simulate_exponential_gamma <- function(n, rate, replicates){
 
 }  
 
-simulations <- simulate_exponential_gamma(n = 10000, rate = 1, replicates = 1000)
 
+# testing
+simulations <- simulate_exponential_gamma(n = 10000, rate = 1, replicates = 1000)
 mean(simulations$coverage)
 mean(simulations$MSE)
 mean(simulations$bias)
 
+# coverages and measurements over sample size
 n <- 20:500
-
 data <- lapply(n, simulate_exponential_gamma, rate = 5, replicates = 1000)
-
 coverages <- c()
 mean_bias <- c()
 mean_variance <- c()
@@ -56,13 +56,16 @@ for(i in 1:length(data)){
 
 
 manyN <- data.frame(n, coverages, mean_bias, mean_variance, mean_MSE)
+#coverages over sample size
 manyN %>% ggplot(aes(x = n, y = coverages)) + geom_point(alpha = 0.5) + geom_smooth(method = 'loess')
+#bias, mse, variance over sample size
 manyN %>% ggplot() + geom_smooth(aes(n, mean_bias), col = 'red') + 
   geom_smooth(aes(n,mean_variance), col = 'blue') + 
   geom_smooth(aes(n,mean_MSE), col = 'green')
 
 
-rate <- seq(1,10,0.1)
+# changing rates fixed sample size
+rate <- seq(.1,10,0.01)
 data2 <- lapply(rate, simulate_exponential_gamma, n = 25, replicates = 1000)
 
 coverages <- c()
@@ -77,7 +80,9 @@ for(i in 1:length(data2)){
 }
 
 manyR10 <- data.frame(rate, coverages, mean_bias, mean_variance, mean_MSE)
-manyR10 %>% ggplot(aes(x = rate, y = coverages)) + geom_point(alpha = 0.5) + geom_smooth(method = 'loess')
+#coverage over rates
+manyR10 %>% ggplot(aes(x = rate, y = coverages)) + geom_smooth(method = 'loess')
+#bias, mse, variance over rates
 manyR10 %>% ggplot() + geom_smooth(aes(rate, mean_bias), col = 'red') + 
   geom_smooth(aes(rate, mean_variance), col = 'blue') + 
   geom_smooth(aes(rate, mean_MSE), col = 'green')
