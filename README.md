@@ -8,6 +8,7 @@ Estimators:
 * Inverse of the median
 * Jeffrey’s estimate (Bayesian)
 
+
 Confidence Intervals:
 * Normal distribution of the MLE
 * Gamma distribution
