@@ -334,11 +334,6 @@ return(data.frame(mle_mse = mle_mse, med_mse = med_mse, mle_var = mle_var, med_v
 
 }
 
-estimators(100, 5, 20)
-
-dat_4 %>%
-  ggplot() +
-  geom_point(aes(x = parameter, y = mse))
 
 ```
 
