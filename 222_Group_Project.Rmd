@@ -58,7 +58,7 @@ mean(simulations$MSE)
 mean(simulations$bias)
 
 # coverages and measurements over sample size
-n <- 10:500
+n <- 5:100
 data <- lapply(n, simulate_exponential_gamma, rate = 5, replicates = 1000)
 coverages <- c()
 mean_bias <- c()
@@ -213,9 +213,9 @@ for (i in 1:length(dat$observation)){
   
   dat$estimate[i] <- 1/mean(rexp(n = dat$n_size[i], rate = dat$true_parameter[i]))
   
-  dat$lower[i] <- dat$estimate[i] - qchisq(0.025, 2*dat$n_size[i])/(2*dat$n_size[i]*(1/dat$estimate[i]))
+  dat$lower[i] <- qchisq(0.025, 2*dat$n_size[i])/(2*dat$n_size[i]*(1/dat$estimate[i]))
   
-  dat$upper[i] <- dat$estimate[i] + qchisq(0.025, 2*dat$n_size[i])/(2*dat$n_size[i]*(1/dat$estimate[i]))
+  dat$upper[i] <- qchisq(0.975, 2*dat$n_size[i])/(2*dat$n_size[i]*(1/dat$estimate[i]))
   
   dat$hit[i] <- ifelse(dat$true_parameter[i] > dat$lower[i] & dat$true_parameter[i] < dat$upper[i], 1, 0)
 } 
@@ -225,14 +225,14 @@ return(sum(dat$hit)/observations)
 
 #exact ci simulation for 
  
-dat_exact_paramter <- data.frame(parameter = seq(0.1, 20, length.out = 100))
+dat_exact_parameter <- data.frame(parameter = seq(0.1, 20, length.out = 100))
 
 for (i in 1:length(dat_exact_paramter$parameter)) {
 
-  dat_exact_paramter$cov_prob[i] <- exact_ci(1000, dat_exact_paramter$parameter[i], 50)
+  dat_exact_parameter$cov_prob[i] <- exact_ci(1000, dat_exact_paramter$parameter[i], 50)
 }
 
-dat_exact_paramter %>%
+dat_exact_parameter %>%
   ggplot() +
   geom_point(aes(x = parameter, y = cov_prob))
 
@@ -244,17 +244,12 @@ dat_exact_paramter %>%
 ```{r}
 
 
-dat_delta_n <- data.frame(n_size = seq(10, 500, 1))
+dat_delta_n <- data.frame(n_size = seq(5, 100, 1))
 
 for (i in 1:length(dat_delta_n$n_size)) {
 
   dat_delta_n$cov_prob[i] <- delta_ci(1000, 5, dat_delta_n$n_size[i])
 }
-
-dat_delta_n %>%
-  ggplot() +
-  geom_point(aes(x = n_size, y = cov_prob)) +
-  geom_smooth(aes(x = n_size, y = cov_prob))
 
 ```
 
@@ -262,16 +257,12 @@ dat_delta_n %>%
 
 ```{r}
 
-dat_exact_n <- data.frame(n_size = seq(10,500, 1))
+dat_exact_n <- data.frame(n_size = seq(5,100, 1))
 
 for (i in 1:length(dat_exact_n$n_size)) {
 
   dat_exact_n$cov_prob[i] <- exact_ci(1000, 5, dat_exact_n$n_size[i])
 }
-
-dat_exact_n %>%
-  ggplot() +
-  geom_path(aes(x = n_size, y = cov_prob))
 
 ```
 
@@ -281,12 +272,23 @@ dat_exact_n %>%
 
 ```{r}
 
-bayesian <- "red"
-delta <- "blue"
 
 ggplot() +
-  geom_smooth(data = manyR50, aes(x = rate, y = coverages), col = bayesian) +
-  geom_smooth(data = dat_delta_parameter, aes(x = parameter, y = cov_prob), col = delta)
+  geom_smooth(data = manyR50, aes(x = rate, y = coverages), col = "yellow", se = FALSE) +
+  geom_smooth(data = dat_delta_parameter, aes(x = parameter, y = cov_prob), col = "red", se = FALSE) +
+  geom_smooth(data = dat_exact_parameter, aes(x = parameter, y = cov_prob), col = "green", se = FALSE) +
+  scale_y_continuous(limits = c(0.9, 1), breaks = seq(0.9, 1, 0.01)) +
+  xlab("Theta") +
+  ylab("Coverage Probability")
+
+ggplot() +
+  geom_smooth(data = manyN, aes(x = n, y = coverages), col = "yellow", se = FALSE) +
+  geom_smooth(data = dat_delta_n, aes(x = n_size, y = cov_prob), col = "red", se = FALSE) +
+  geom_smooth(data = dat_exact_n, aes(x = n_size, y = cov_prob), col = "green", se = FALSE) +
+  scale_y_continuous(limits = c(0.9, 1), breaks = seq(0.9, 1, 0.01)) +
+  scale_x_continuous(limits = c(5, 100), breaks = seq(10,100,10)) +
+  xlab("n-size") +
+  ylab("Coverage Probability")
 
 
 
@@ -297,7 +299,6 @@ ggplot() +
 
 #Parameters
 
-# 1/mean (MLE) as estimator, constant n-size MSE for variable parameter
 
 ```{r}
 
@@ -310,7 +311,7 @@ for (i in 1:length(dat$observation)){
   sample_exp <- rexp(n = dat$n_size[i], rate = dat$true_parameter[i])
   
   dat$mle[i] <- 1/mean(sample_exp)
-  dat$med[i] <- 1/median(sample_exp)
+  dat$med[i] <- log(2)/median(sample_exp)
   
   dat$mle_bias[i] <- dat$mle[i] - dat$true_parameter[i]
   dat$med_bias[i] <- dat$med[i] - dat$true_parameter[i]
@@ -356,22 +357,25 @@ mse_parameter <- dat_parameter %>%
   ggplot() +
   geom_path(aes(x = parameter, y = mle_mse), col = "red") +
   geom_path(aes(x = parameter, y = med_mse), col = "green") +
-  geom_path(data = manyR50, aes(x = rate, y = mean_bias), col = "yellow") +
-  ylab("MSE")
+  geom_path(data = manyR50, aes(x = rate, y = mean_MSE), col = "yellow") +
+  ylab("MSE") +
+  xlab("Theta")
 
 bias_parameter <- dat_parameter %>%
   ggplot() +
   geom_path(aes(x = parameter, y = mle_avg_bias), col = "red") +
   geom_path(aes(x = parameter, y = med_avg_bias), col = "green") +
-  geom_path(data = manyR50, aes(x = rate, y = mean_MSE), col = "yellow") +
-  ylab("Bias")
+  geom_path(data = manyR50, aes(x = rate, y = mean_bias), col = "yellow") +
+  ylab("Bias") +
+  xlab("Theta")
 
 var_parameter <- dat_parameter %>%
   ggplot() +
   geom_path(aes(x = parameter, y = mle_var), col = "red") +
   geom_path(aes(x = parameter, y = med_var), col = "green") +
   geom_path(data = manyR50, aes(x = rate, y = mean_variance), col = "yellow") +
-  ylab("Variance")
+  ylab("Variance") +
+  xlab("Theta")
 
 grid.arrange(mse_parameter, bias_parameter, var_parameter, nrow = 3)
 
@@ -379,7 +383,7 @@ grid.arrange(mse_parameter, bias_parameter, var_parameter, nrow = 3)
 
 
 ```{r}
-dat_n <- data.frame(n_size = seq(10, 500, 1))
+dat_n <- data.frame(n_size = seq(5, 100, 1))
 
 dat_sim_n <- data.frame(mle_mse = NULL, med_mse = NULL, mle_var = NULL, med_var = NULL, mle_avg_bias = NULL, med_avg_bias = NULL)
 
@@ -395,21 +399,24 @@ mse_n <- dat_n %>%
   geom_path(aes(x = n_size, y = mle_mse), col = "red") +
   geom_path(aes(x = n_size, y = med_mse), col = "green") +
   geom_path(data = manyN, aes(x = n, y = mean_MSE), col = "yellow") +
-  ylab("MSE")
+  ylab("MSE") +
+  xlab("n-size")
 
 bias_n <- dat_n %>%
   ggplot() +
   geom_path(aes(x = n_size, y = mle_avg_bias), col = "red") +
   geom_path(aes(x = n_size, y = med_avg_bias), col = "green") +
   geom_path(data = manyN, aes(x = n, y = mean_bias), col = "yellow") +
-  ylab("Bias")
+  ylab("Bias") +
+  xlab("n-size")
 
 var_n <- dat_n %>%
   ggplot() +
   geom_path(aes(x = n_size, y = mle_var), col = "red") +
   geom_path(aes(x = n_size, y = med_var), col = "green") +
   geom_path(data = manyN, aes(x = n, y = mean_variance), col = "yellow") +
-  ylab("Variance")
+  ylab("Variance") +
+  xlab("n-size")
 
 grid.arrange(mse_n, bias_n, var_n, nrow = 3)
 
